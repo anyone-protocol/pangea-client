@@ -66,7 +66,7 @@ class Client:
         username=None,
         password=None,
         is_secure=True,
-        anyone_enabled=False,
+        anyone=False,
         anyone_host="127.0.0.1",
         anyone_port=9050,
     ):
@@ -84,19 +84,19 @@ class Client:
         self.request_handlers = {}
         self.receive_task = None
         self._shutdown_signal = asyncio.Event()
+        self.anyone_runner = None
 
-        if anyone_enabled:
+        if anyone:
             socks.set_default_proxy(socks.SOCKS5, anyone_host, anyone_port)
             socket.socket = socks.socksocket
             config = AnonConfig(
                 auto_terms_agreement=True,
                 control_port=0,
                 socks_port=anyone_port,
+                display_log=False,
             )
-            self.runner = AnonRunner(config)
-            self.runner.start()
-            time.sleep(5) #todo: create await interface for runner.start()
-
+            self.anyone_runner = AnonRunner(config)
+            self.anyone_runner.start()
 
     async def __aenter__(self):
         await self.connect()
@@ -136,7 +136,8 @@ class Client:
 
     async def __aexit__(self, exc_type, exc_value, traceback):
         await self.disconnect()
-        self.runner.stop()
+        if self.anyone_runner:
+            self.anyone_runner.stop()
 
     async def connect(self):
         if self.connection:
